@@ -1,0 +1,48 @@
+plugins {
+    id 'java'
+    id 'eclipse'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+dependencies {
+    // Add your dependencies here
+
+	// https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit
+	implementation 'org.eclipse.jgit:org.eclipse.jgit:6.7.0.202309050840-r'
+
+	// https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit.ssh.jsch
+	implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:6.10.0.202406032230-r'
+    
+    // SLF4J for logging
+    implementation 'org.slf4j:slf4j-api:2.0.7'
+    implementation 'org.slf4j:slf4j-simple:2.0.7'
+
+    // JSch for SSH support in JGit
+    implementation 'com.jcraft:jsch:0.1.55'
+    
+    // https://mvnrepository.com/artifact/commons-io/commons-io
+	implementation 'commons-io:commons-io:2.16.1'
+    
+
+    // Optional: If using Apache Mina SSHD instead of JSch
+    implementation 'org.apache.sshd:sshd-core:2.10.0'
+	implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:6.7.0.202309050840-r'
+    implementation 'org.eclipse.jgit:org.eclipse.jgit.ssh.apache:6.7.0.202309050745-r'
+
+    // https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on
+	implementation 'org.bouncycastle:bcprov-jdk15on:1.64'
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+mainClassName = 'src/main/java/ssh/demo/exec/GitMain.java'
