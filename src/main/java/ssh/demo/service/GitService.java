@@ -80,7 +80,7 @@ public class GitService {
     public void createSshService(String pubKey, String privKey) throws GeneralSecurityException {
     	try {
 			this.sshService = new SshService(pubKey, privKey);
-		} catch (IOException | GeneralSecurityException e) {
+		} catch (IOException e) {
 			System.err.println("Error creating SSH service with private key path & private key loaded:\n");
 			e.printStackTrace();
 		}
@@ -141,12 +141,4 @@ public class GitService {
 			err.printStackTrace();
 		}
     }
-    
-    /* 
-	 * Helper method to delete the temporary file with the private key
-	 */
-    public final void deleteTempFile() {
-    	this.sshService.deleteTempFile();
-    }
-
 }

@@ -8,10 +8,10 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.spec.EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
@@ -29,7 +29,10 @@ public class SshService {
 	private TransportConfigCallback transportConfigCallback;
 	private SshClient sshClient;
 	private SshdSessionFactory sshdSessionFactory = null;
-	private File privateKeyFile;
+	private static KeyPair keyPair;
+	
+	// Set default SSH directory to .ssh
+	private final File defaultSshDir = new File(FS.DETECTED.userHome(), "/.ssh");
 	
 	//Use Saved SSH Keys
 	public SshService() { 
@@ -67,26 +70,18 @@ public class SshService {
 	//Use Provided SSH Keys
 	public SshService(String pubKey, String privKey) throws IOException, GeneralSecurityException{ 
 		
-		System.out.println("Taking key as param for SSH service");
+		//System.out.println("Taking key as param for SSH service");
 		
 	    // Set up SSH client
 	    this.sshClient = SshClient.setUpDefaultClient();
 	    this.sshClient.setClientIdentityLoader(ClientIdentityLoader.DEFAULT);
 	    this.sshClient.start();
 	    
-	    File sshDir = new File(FS.DETECTED.userHome(), pubKey);
-	    
-	    // Create a temporary file to store the private key
-	 	//this.privateKeyFile = new File(sshDir, "id_rsa");
-	 	
-	 	// Write the private key to the temporary file
-	    //java.nio.file.Files.writeString(this.privateKeyFile.toPath(), privateKey);
-
 	 	// Create SSH session factory
         this.sshdSessionFactory = new SshdSessionFactoryBuilder()
                 .setPreferredAuthentications("publickey")
                 .setHomeDirectory(FS.DETECTED.userHome())
-                .setSshDirectory(sshDir)
+                .setSshDirectory(defaultSshDir)
 				.setDefaultKeysProvider(f -> keyMethod(f, pubKey, privKey))
                 .build(null);
 
@@ -110,39 +105,18 @@ public class SshService {
 	public TransportConfigCallback getTransportConfigCallback() {
 		return transportConfigCallback;
 	}
-	
-	public void createKnownHostsFile(File sshDir) {
-		// Need to do something to fix the issue with this...
-		// Either 1. user needs to provide more information or 2. figure out workaround with SshdSessionFactory
-	}
-	
-	// Helper method to stop SSH client when necessary
-	public void stopService() throws IOException {
-		if (this.sshClient.isStarted()) {
-			this.sshClient.stop();
-			this.sshdSessionFactory.close();
-			System.out.println("SSH Service is stopped.");
-		} else {
-			System.out.println("SSH Service was not started");
-		}
-	}
-	
-	// Helper method to delete temporary key file... not super efficient and need some way to enforce
-	public void deleteTempFile() {
-		this.privateKeyFile.delete();
-	}
 
 	public static Iterable<KeyPair> keyMethod(File f, String pub, String priv) {
 		try{
 			//System.out.println("Called keyMethod");
 
 			List<KeyPair> keyPairs = new ArrayList<>();
+			
+			keyPair = new KeyPair(loadPublicKey(pub), loadPrivateKey(priv));
 
-			keyPairs.add(new KeyPair(loadPublicKey(pub), loadPrivateKey(priv)));
+			//System.out.println("Created Keypair");
 
-			System.out.println("Created Keypair");
-
-			//keyPairs.add(collecMyKeyFromMemory());
+			keyPairs.add(keyPair);
 
 			return keyPairs;
 		} catch (Exception e) {
@@ -154,17 +128,19 @@ public class SshService {
 		String cleanKey = stored
         .replaceAll("-----BEGIN PUBLIC KEY-----", "")
         .replaceAll("-----END PUBLIC KEY-----", "")
-        .replaceAll("\\s", ""); // Remove newlines or spaces
+        .replaceAll("\\s+", ""); // Remove newlines or spaces
+
+		//System.out.println("Formatted PubKey: \n" + cleanKey.substring(0, 20) + "\n");
 		
-		byte[] data = Base64.getDecoder().decode((cleanKey.getBytes()));
+		byte[] data = Base64.getDecoder().decode((cleanKey));
 		
-		X509EncodedKeySpec spec = new X509EncodedKeySpec(data);
+		EncodedKeySpec spec = new X509EncodedKeySpec(data);
 		
 		KeyFactory fact = KeyFactory.getInstance("RSA");
 		
 		PublicKey pub = fact.generatePublic(spec);
 
-		System.out.println("Created PublicKey: " + pub);
+		//System.out.println("Created PublicKey: " + pub);
 
 		return pub;
 	}
@@ -172,21 +148,33 @@ public class SshService {
 
 	public static PrivateKey loadPrivateKey(String stored) throws GeneralSecurityException, IOException {
 		String cleanKey = stored
-        .replaceAll("-----BEGIN RSA PRIVATE KEY-----", "")
-        .replaceAll("-----END RSA PRIVATE KEY-----", "")
-        .replaceAll("\\s", ""); // Remove newlines or spaces
+        .replaceAll("-----BEGIN PRIVATE KEY-----", "")
+        .replaceAll("-----END PRIVATE KEY-----", "")
+        .replaceAll("\\s+", ""); // Remove newlines or spaces
 
-		byte[] data = Base64.getDecoder().decode(cleanKey.getBytes());
+		//System.out.println("Formatted PrivKey: \n" + cleanKey.substring(0, 20) + "\n");
 
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(data);
+		byte[] data = Base64.getDecoder().decode(cleanKey);
+
+        EncodedKeySpec spec = new PKCS8EncodedKeySpec(data);
 
         KeyFactory fact = KeyFactory.getInstance("RSA");
 
         PrivateKey priv = fact.generatePrivate(spec);
 
-		System.out.println("Created PriavteKey: " + priv);
+		//System.out.println("Created PriavteKey: " + priv);
 
-        Arrays.fill(data, (byte) 0);
         return priv;
    	}
+
+	// Helper method to stop SSH client when necessary
+	public void stopService() throws IOException {
+		if (this.sshClient.isStarted()) {
+			this.sshClient.stop();
+			this.sshdSessionFactory.close();
+			System.out.println("SSH Service is stopped.");
+		} else {
+			System.out.println("SSH Service was not started");
+		}
+	}
 }
